@@ -3,5 +3,7 @@ uvicorn[standard]
 python-multipart
 Pillow
 PyMuPDF
-python-dotenv
 httpx
+pydantic-settings
+redis
+python-jose[cryptography]

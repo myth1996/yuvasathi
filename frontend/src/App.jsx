@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react"
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
 const text = {
   title: { bn: "যুব সাথী নথি ফরম্যাটার", hi: "युवा साथी दस्तावेज़ फ़ॉर्मेटर", en: "Yuva Sathi Document Formatter" },
   subtitle: { bn: "যেকোনো সাইজের ফাইল আপলোড করুন", hi: "कोई भी फ़ाइल अपलोड करें", en: "Upload any file — we'll format it for the portal" },
@@ -44,7 +46,7 @@ export default function App() {
     script.src = "https://sdk.cashfree.com/js/v3/cashfree.js"
     script.async = true
     script.onload = () => {
-      const cf = window.Cashfree({ mode: "sandbox" })
+      const cf = window.Cashfree({ mode: import.meta.env.VITE_CASHFREE_MODE || "production" })
       setCashfree(cf)
     }
     document.body.appendChild(script)
@@ -52,9 +54,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/check-limit")
+    fetch(`${API}/check-limit`)
       .then(r => r.json())
       .then(d => setServerRemaining(d.remaining))
+      .catch(() => {})
   }, [freeUsed])
 
   async function handleConvert() {
@@ -62,24 +65,18 @@ export default function App() {
     if (!isFree && !hasPaid) { setShowPaywall(true); return }
     setStatus("converting")
     setDownloadUrl(null)
-
     const endpoint = selectedDoc.type === "pdf"
-      ? "http://127.0.0.1:8000/convert/pdf"
+      ? `${API}/convert/pdf`
       : selectedDoc.type === "photo"
-      ? "http://127.0.0.1:8000/convert/photo"
-      : "http://127.0.0.1:8000/convert/signature"
-
+      ? `${API}/convert/photo`
+      : `${API}/convert/signature`
     try {
       const headers = {}
       if (hasPaid) headers["X-Access-Token"] = "paid"
       const formData = new FormData()
       formData.append("file", file)
       const res = await fetch(endpoint, { method: "POST", body: formData, headers })
-      if (res.status === 402) {
-        setShowPaywall(true)
-        setStatus("idle")
-        return
-      }
+      if (res.status === 402) { setShowPaywall(true); setStatus("idle"); return }
       const blob = await res.blob()
       setDownloadUrl(URL.createObjectURL(blob))
       setStatus("done")
@@ -91,26 +88,21 @@ export default function App() {
 
   async function handlePayment(plan) {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/payment/create-order?plan=${plan}`, { method: "POST" })
+      const res = await fetch(`${API}/payment/create-order?plan=${plan}`, { method: "POST" })
       const order = await res.json()
-
       if (!cashfree) { alert("Payment loading, please try again."); return }
-
       cashfree.checkout({
         paymentSessionId: order.payment_session_id,
         redirectTarget: "_modal"
       }).then(async function(result) {
         if (result.paymentDetails) {
-          const verify = await fetch("http://127.0.0.1:8000/payment/verify", {
+          const verify = await fetch(`${API}/payment/verify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ order_id: order.order_id, plan })
           })
           const data = await verify.json()
-          if (data.success) {
-            setDocsAllowed(data.docs_allowed)
-            setShowPaywall(false)
-          }
+          if (data.success) { setDocsAllowed(data.docs_allowed); setShowPaywall(false) }
         }
       })
     } catch(e) {
@@ -120,7 +112,6 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f0f4ff", fontFamily: "sans-serif" }}>
-
       <div style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)", padding: "24px", textAlign: "center" }}>
         <h1 style={{ color: "white", fontSize: "1.5rem", marginBottom: "8px" }}>{t("title")}</h1>
         <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.9rem" }}>{t("subtitle")}</p>
@@ -141,7 +132,6 @@ export default function App() {
       </div>
 
       <div style={{ maxWidth: "600px", margin: "0 auto", padding: "24px" }}>
-
         {showPaywall && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
             <div style={{ background: "white", borderRadius: "16px", padding: "32px", maxWidth: "400px", width: "90%", textAlign: "center" }}>
