@@ -29,18 +29,19 @@ app.include_router(payment_router, prefix="/payment")
 # --- Redis Connection ---
 # This connection will be reused across the application
 try:
-    redis_client = redis.Redis(
-        host=settings.redis_host,
-        port=settings.redis_port,
-        db=0,
-        decode_responses=True,
-    )
-    # Check if the connection is alive
+    if settings.redis_url:
+        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+    else:
+        redis_client = redis.Redis(
+            host=settings.redis_host,
+            port=settings.redis_port,
+            db=0,
+            decode_responses=True,
+        )
     redis_client.ping()
     print("Successfully connected to Redis.")
 except redis.exceptions.ConnectionError as e:
     print(f"Could not connect to Redis: {e}")
-    # In a real app, you might want to exit or have a fallback
     redis_client = None
 
 # --- Security & Rate Limiting ---

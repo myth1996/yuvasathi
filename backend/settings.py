@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     )
     jwt_algorithm: str = "HS256"
 
-    # Redis — set REDIS_HOST env var to your Railway/Upstash Redis URL
+    # Redis — Railway provides REDIS_URL (with auth); fallback to host/port for local dev
+    redis_url: str = os.environ.get("REDIS_URL", "")
     redis_host: str = os.environ.get("REDIS_HOST", "localhost")
     redis_port: int = int(os.environ.get("REDIS_PORT", "6379"))
 
