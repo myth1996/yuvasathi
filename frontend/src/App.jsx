@@ -275,7 +275,7 @@ export default function App() {
 
   async function handleConvert() {
     if (!file || !selectedDoc) return
-    if (!isFree && !hasPaid) { setShowPaywall(true); return }
+    if (!isFree && !hasPaid) { setShowPaywall(true); window.gtag?.("event", "paywall_shown", { doc_type: selectedDoc.id }); return }
 
     const limitBytes = isPdf ? 300 * 1024 : 50 * 1024
 
@@ -286,6 +286,7 @@ export default function App() {
       setDownloadUrl(URL.createObjectURL(file))
       setStatus("done")
       markDone(selectedDoc.id)
+      window.gtag?.("event", "conversion_complete", { doc_type: selectedDoc.id, was_compressed: false })
       return
     }
 
@@ -309,6 +310,7 @@ export default function App() {
       setDownloadUrl(URL.createObjectURL(blob))
       setStatus("done")
       markDone(selectedDoc.id)
+      window.gtag?.("event", "conversion_complete", { doc_type: selectedDoc.id, was_compressed: true })
       if (hasPaid) setDocsAllowed(prev => prev - 1)
       else setFreeUsed(prev => prev + 1)
       // Credit referrer on first conversion by a referred visitor
@@ -357,6 +359,7 @@ export default function App() {
             setAccessToken(data.token)
             setDocsAllowed(plan === "student" ? 6 : 50)
             setShowPaywall(false)
+            window.gtag?.("event", "payment_success", { plan, value: plan === "student" ? 15 : 49, currency: "INR" })
           }
         }
       })
