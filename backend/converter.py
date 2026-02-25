@@ -3,109 +3,145 @@ import logging
 from PIL import Image, UnidentifiedImageError
 import fitz  # PyMuPDF
 
-# Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Configuration Constants ---
-PDF_DPI_LEVELS = [150, 100, 72]  # DPI levels to attempt for PDF compression
-JPEG_QUALITY_LEVELS = [85, 75, 65, 50] # Quality levels for JPEG
-IMAGE_RESIZE_STEPS = [1.0, 0.8, 0.6] # Resize multipliers for images (1.0 = original size)
+# DPI levels to try for PDF page rasterisation (high → low, never below 100)
+PDF_DPI_LEVELS = [200, 150, 120, 100]
+# JPEG quality levels to try when embedding page images inside a PDF
+PDF_JPEG_QUALITY = [85, 75]
+# JPEG quality levels for photo/signature images (never below 65 — keeps text legible)
+IMAGE_JPEG_QUALITY = [85, 75, 65]
+# Resize multipliers for images — only gentle reduction, 0.75 is the floor
+IMAGE_RESIZE_STEPS = [1.0, 0.9, 0.75]
+# Cap image longest side to this many pixels before any quality pass
+IMAGE_MAX_DIMENSION = 1600
+
 
 def compress_pdf(file_bytes: bytes, max_mb: float = 0.3) -> bytes:
     """
-    Compresses a PDF by converting its pages to JPEG images at decreasing DPIs.
-    Returns the first version that is under the size limit.
+    Compresses a PDF to stay within max_mb (default 300 KB).
+
+    Strategy:
+    1. Try lossless garbage-collect + deflate — keeps text as crisp vectors.
+    2. If still too large, rasterise each page as a JPEG (not raw PNG) and
+       rebuild the PDF.  By embedding JPEG we can achieve much smaller sizes
+       at higher DPI, so legibility is preserved.
+    3. Works through (dpi, jpeg_quality) pairs from high to low, returning
+       the first result that meets the size target.
+    4. Returns the smallest version produced if the target is never met.
     """
     max_bytes = int(max_mb * 1024 * 1024)
-    
+
     try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
     except fitz.errors.FitzError as e:
-        logging.error(f"Failed to open PDF stream: {e}")
-        return file_bytes # Return original bytes if it's not a valid PDF
+        logging.error(f"Failed to open PDF: {e}")
+        return file_bytes
 
-    # Try to save with garbage collection and deflation first
-    logging.info("Attempting initial compression with garbage collection.")
-    initial_compressed = doc.tobytes(garbage=4, deflate=True)
-    if len(initial_compressed) <= max_bytes:
-        logging.info(f"Initial compression successful. Size: {len(initial_compressed) / 1024:.1f} KB")
-        return initial_compressed
+    # --- Step 1: lossless compression (no quality loss) ---
+    logging.info("Step 1: lossless garbage-collect + deflate")
+    lossless = doc.tobytes(garbage=4, deflate=True)
+    if len(lossless) <= max_bytes:
+        logging.info(f"Lossless pass sufficient: {len(lossless)/1024:.1f} KB")
+        return lossless
 
-    # If still too large, begin iterative image conversion
+    # --- Step 2: JPEG-inside-PDF rasterisation ---
+    best = lossless  # keep track of smallest so far as fallback
     for dpi in PDF_DPI_LEVELS:
-        logging.info(f"Attempting PDF compression at {dpi} DPI...")
-        new_doc = fitz.open()
-        for page in doc:
-            # Render page to a pixmap (an image)
-            pix = page.get_pixmap(dpi=dpi, alpha=False)
-            
-            # Create a new 1-page PDF for the image
-            img_page_pdf = fitz.open()
-            img_page = img_page_pdf.new_page(width=pix.width, height=pix.height)
-            img_page.insert_image(img_page.rect, pixmap=pix)
-            
-            # Insert this new page into our result document
-            new_doc.insert_pdf(img_page_pdf)
-            img_page_pdf.close()
+        for jpeg_quality in PDF_JPEG_QUALITY:
+            logging.info(f"Trying {dpi} DPI, JPEG quality {jpeg_quality}")
+            new_doc = fitz.open()
+            for page in doc:
+                pix = page.get_pixmap(dpi=dpi, alpha=False)
+                # Encode the pixmap as JPEG bytes (lossy but controlled quality)
+                jpeg_bytes = pix.tobytes("jpeg", jpg_quality=jpeg_quality)
+                # Insert the JPEG image into a new PDF page of the same dimensions
+                img_pdf = fitz.open()
+                img_page = img_pdf.new_page(width=pix.width, height=pix.height)
+                img_page.insert_image(img_page.rect, stream=jpeg_bytes)
+                new_doc.insert_pdf(img_pdf)
+                img_pdf.close()
 
-        # Save the reconstructed PDF with compression
-        result_bytes = new_doc.tobytes(garbage=4, deflate=True)
-        new_doc.close()
-        
-        logging.info(f"Size at {dpi} DPI: {len(result_bytes) / 1024:.1f} KB")
-        if len(result_bytes) <= max_bytes:
-            logging.info(f"Target size met at {dpi} DPI. Final size: {len(result_bytes) / 1024:.1f} KB")
-            return result_bytes
-            
-    logging.warning("Could not meet target size, returning the smallest version.")
-    return result_bytes
+            result = new_doc.tobytes(garbage=4, deflate=True)
+            new_doc.close()
+            logging.info(f"  → {len(result)/1024:.1f} KB")
+
+            if len(result) < len(best):
+                best = result
+
+            if len(result) <= max_bytes:
+                logging.info(f"Target met at {dpi} DPI / Q{jpeg_quality}")
+                return result
+
+    logging.warning("Target size not met; returning smallest version produced.")
+    return best
 
 
 def compress_image(file_bytes: bytes, fmt: str = "JPEG", max_mb: float = 0.05) -> bytes:
     """
-    Compresses an image by iterating through quality and resize steps.
+    Compresses a photo or signature to stay within max_mb (default 50 KB).
+
+    Strategy:
+    1. Cap the longest side to IMAGE_MAX_DIMENSION (1600 px) first — avoids
+       needless quality loss on very large originals.
+    2. Try progressively lower quality levels (JPEG: 85 → 75 → 65).
+    3. If still too large, gently resize (90 % → 75 %) and repeat quality loop.
+    4. Minimum JPEG quality is 65 — below that text in signatures becomes
+       illegible; similarly the resize floor is 0.75 to preserve proportions.
+    5. PNG signatures use lossless encoding but still benefit from capping
+       dimensions and resizing.
     """
     max_bytes = int(max_mb * 1024 * 1024)
 
     try:
         img = Image.open(io.BytesIO(file_bytes))
     except (UnidentifiedImageError, IOError) as e:
-        logging.error(f"Cannot identify image file: {e}")
+        logging.error(f"Cannot open image: {e}")
         return file_bytes
 
-    # Ensure transparency is handled correctly for JPEG
+    # Convert RGBA / palette images to RGB for JPEG compatibility
     if fmt.upper() == "JPEG" and img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
-    
+
+    # --- Step 1: cap maximum dimension to avoid extreme quality penalties ---
+    w, h = img.size
+    longest = max(w, h)
+    if longest > IMAGE_MAX_DIMENSION:
+        scale = IMAGE_MAX_DIMENSION / longest
+        img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+        logging.info(f"Capped to {img.size} (was {w}×{h})")
+
     original_size = img.size
 
-    # Outer loop for resizing
-    for resize_factor in IMAGE_RESIZE_STEPS:
-        current_width = int(original_size[0] * resize_factor)
-        current_height = int(original_size[1] * resize_factor)
-        
-        # Only resize if it's not the first (1.0) iteration
-        if resize_factor < 1.0:
-            logging.info(f"Resizing image to {current_width}x{current_height}")
-            img = img.resize((current_width, current_height), Image.Resampling.LANCZOS)
+    # For PNG (signatures): lossless, so only the resize loop matters
+    quality_steps = IMAGE_JPEG_QUALITY if fmt.upper() == "JPEG" else [None]
 
-        # Inner loop for quality
-        quality_steps = JPEG_QUALITY_LEVELS if fmt.upper() == "JPEG" else [100] # PNG is lossless, quality is irrelevant
+    # --- Step 2: quality × resize loops ---
+    for resize_factor in IMAGE_RESIZE_STEPS:
+        if resize_factor < 1.0:
+            new_w = int(original_size[0] * resize_factor)
+            new_h = int(original_size[1] * resize_factor)
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            logging.info(f"Resized to {img.size}")
+
         for quality in quality_steps:
             output = io.BytesIO()
-            save_kwargs = {"format": fmt}
-            if fmt.upper() == "JPEG":
+            save_kwargs: dict = {"format": fmt}
+            if quality is not None:
                 save_kwargs["quality"] = quality
-            
-            logging.info(f"Attempting save with size={resize_factor*100}% and quality={quality}")
+                log_q = f"Q{quality}"
+            else:
+                log_q = "lossless"
+
             img.save(output, **save_kwargs)
-            
+            size_kb = output.tell() / 1024
+            logging.info(f"  {resize_factor*100:.0f}% size, {log_q}: {size_kb:.1f} KB")
+
             if output.tell() <= max_bytes:
-                logging.info(f"Target size met. Final size: {output.tell() / 1024:.1f} KB")
+                logging.info(f"Target met: {size_kb:.1f} KB")
                 return output.getvalue()
 
-    logging.warning("Could not meet target size, returning the smallest version produced.")
-    # Fallback to returning the last (smallest) generated version
+    logging.warning("Target size not met; returning smallest version produced.")
     output = io.BytesIO()
-    img.save(output, format=fmt)
+    img.save(output, format=fmt, **({"quality": IMAGE_JPEG_QUALITY[-1]} if fmt.upper() == "JPEG" else {}))
     return output.getvalue()
