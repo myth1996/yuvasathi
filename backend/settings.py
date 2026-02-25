@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 import json
 import os
 
@@ -9,24 +8,20 @@ class Settings(BaseSettings):
 
     # CORS: set CORS_ORIGINS env var to your Vercel URL in production
     # e.g. "https://yuvasathi.vercel.app"
-    cors_origins: list[str] = ["*"]
+    # Accepts plain URL, comma-separated, or JSON array string
+    cors_origins: str = "*"
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, list):
-            return v
-        if isinstance(v, str):
-            v = v.strip()
-            if not v:
+    @property
+    def cors_origins_list(self) -> list[str]:
+        v = self.cors_origins.strip()
+        if not v:
+            return ["*"]
+        if v.startswith("["):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
                 return ["*"]
-            if v.startswith("["):
-                try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    return ["*"]
-            return [u.strip() for u in v.split(",") if u.strip()]
-        return ["*"]
+        return [u.strip() for u in v.split(",") if u.strip()]
 
     # JWT signing key — MUST be set via JWT_SECRET_KEY env var in production
     jwt_secret_key: str = os.environ.get(
