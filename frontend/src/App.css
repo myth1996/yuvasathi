@@ -190,6 +190,37 @@
   color: #047857;
   margin: 0 0 14px;
 }
+.filename-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.filename-label {
+  font-size: 0.82rem;
+  color: #047857;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.filename-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 260px;
+  border: 1px solid #6ee7b7;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  color: #065f46;
+  background: white;
+  outline: none;
+}
+.filename-input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16,185,129,0.15);
+}
+
 .download-btn {
   display: inline-block;
   background: #10b981;

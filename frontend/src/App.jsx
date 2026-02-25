@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import "./App.css"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000"
@@ -54,6 +54,17 @@ const text = {
     hi: "फ़ाइल अपলोड करें — हम स्वचालित रूप से सही आकार में बदल देंगे",
     en: "Upload your file — we'll compress it to the required size automatically",
   },
+}
+
+const suggestedFileName = {
+  pdf1: "admit_card.pdf",
+  pdf2: "marksheet.pdf",
+  pdf3: "aadhaar_card.pdf",
+  pdf4: "voter_card.pdf",
+  pdf5: "bank_passbook.pdf",
+  pdf6: "caste_certificate.pdf",
+  photo: "passport_photo.jpg",
+  sig: "signature.png",
 }
 
 const documents = [
@@ -159,11 +170,30 @@ export default function App() {
   const [showPaywall, setShowPaywall] = useState(false)
   const [serverRemaining, setServerRemaining] = useState(2)
   const [cashfree, setCashfree] = useState(null)
+  const [downloadFileName, setDownloadFileName] = useState("")
+
+  const uploadRef = useRef(null)
+  const successRef = useRef(null)
 
   const t = (key) => text[key][lang]
   const isFree = serverRemaining > 0
   const hasPaid = docsAllowed > 0
   const isPdf = selectedDoc?.type === "pdf"
+
+  // --- Auto-scroll to upload box when a doc is selected ---
+  useEffect(() => {
+    if (selectedDoc && uploadRef.current) {
+      uploadRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [selectedDoc])
+
+  // --- Auto-scroll to success box + set suggested filename after conversion ---
+  useEffect(() => {
+    if (status === "done" && successRef.current) {
+      setDownloadFileName(suggestedFileName[selectedDoc?.id] || "converted_file")
+      successRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [status])
 
   // --- Referral: init own code + capture incoming ref ---
   useEffect(() => {
@@ -349,7 +379,7 @@ export default function App() {
 
         {/* File upload */}
         {selectedDoc && (
-          <div className="upload-box">
+          <div className="upload-box" ref={uploadRef}>
             <p className="upload-note">{t("uploadNote")}</p>
             <input
               type="file"
@@ -381,12 +411,21 @@ export default function App() {
 
         {/* Success */}
         {status === "done" && downloadUrl && (
-          <div className="success-box">
+          <div className="success-box" ref={successRef}>
             <p className="success-text">{t("success")}</p>
             <p className="success-sub">
               {isPdf ? "✅ PDF compressed to ≤ 300 KB" : "✅ Image compressed to ≤ 50 KB"} — ready to upload to the portal
             </p>
-            <a href={downloadUrl} download="converted_file" className="download-btn">
+            <div className="filename-row">
+              <label className="filename-label">Save as:</label>
+              <input
+                className="filename-input"
+                value={downloadFileName}
+                onChange={e => setDownloadFileName(e.target.value)}
+                spellCheck={false}
+              />
+            </div>
+            <a href={downloadUrl} download={downloadFileName || "converted_file"} className="download-btn">
               ⬇️ {t("download")}
             </a>
           </div>
