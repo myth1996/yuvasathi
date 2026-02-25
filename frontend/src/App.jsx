@@ -1,28 +1,142 @@
 import { useState, useEffect } from "react"
+import "./App.css"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 const text = {
-  title: { bn: "যুব সাথী নথি ফরম্যাটার", hi: "युवा साथी दस्तावेज़ फ़ॉर्मेटर", en: "Yuva Sathi Document Formatter" },
-  subtitle: { bn: "যেকোনো সাইজের ফাইল আপলোড করুন", hi: "कोई भी फ़ाइल अपलोड करें", en: "Upload any file — we'll format it for the portal" },
+  title: {
+    bn: "বাংলার যুব সাথী — নথি ফরম্যাটার",
+    hi: "बांग्लार युवा साथी — दस्तावेज़ फ़ॉर्मेटर",
+    en: "Banglar Yuba Sathi — Document Formatter",
+  },
+  subtitle: {
+    bn: "বাংলার যুব সাথী পোর্টালের জন্য নথি প্রস্তুত করুন",
+    hi: "बांग्लार युवा साथी पोर्टल के लिए दस्तावेज़ तैयार करें",
+    en: "Prepare your documents for the বাংলার যুব সাথী portal",
+  },
   selectDoc: { bn: "নথির ধরন বেছে নিন", hi: "दस्तावेज़ प्रकार चुनें", en: "Select document type" },
-  convert: { bn: "রূপান্তর করুন", hi: "कन्वर्ट करें", en: "Convert" },
+  convert: { bn: "রূপান্তর করুন", hi: "कन्वर्ट करें", en: "Convert & Compress" },
   converting: { bn: "হচ্ছে...", hi: "हो रहा है...", en: "Converting..." },
   success: { bn: "সফল! ✅", hi: "सफल! ✅", en: "Success! ✅" },
   download: { bn: "ডাউনলোড করুন", hi: "डाउनलोड करें", en: "Download" },
   freeUsed: { bn: "বিনামূল্যে রূপান্তর শেষ!", hi: "मुफ्त कन्वर्शन खत्म!", en: "Free conversions used up!" },
   choosePlan: { bn: "একটি প্ল্যান বেছে নিন", hi: "एक प्लान चुनें", en: "Choose a plan to continue" },
+  tipsTitle: {
+    bn: "পোর্টালে জমা দেওয়ার আগে মনে রাখুন",
+    hi: "पोर्टल पर जमा करने से पहले याद रखें",
+    en: "Before submitting to the portal",
+  },
+  tip1: {
+    bn: "📱 আপনার মোবাইল নম্বর প্রস্তুত রাখুন — পোর্টাল OTP পাঠাবে",
+    hi: "📱 अपना मोबाइल नंबर तैयार रखें — पोर्टल OTP भेजेगा",
+    en: "📱 Keep your mobile number ready — the portal will send an OTP",
+  },
+  tip2: {
+    bn: "✍️ সমস্ত PDF নথি জমা দেওয়ার আগে স্বপ্রত্যয়িত করুন",
+    hi: "✍️ सभी PDF दस्तावेज़ जमा करने से पहले स्व-सत्यापित करें",
+    en: "✍️ All PDF documents must be Self Attested before uploading",
+  },
+  tip3: {
+    bn: "🖼️ ছবি ও স্বাক্ষর JPG বা PNG ফরম্যাটে হতে হবে",
+    hi: "🖼️ फोटो और हस्ताक्षर JPG या PNG फॉर्मेट में होने चाहिए",
+    en: "🖼️ Photo and Signature must be JPG or PNG format",
+  },
+  uploadNote: {
+    bn: "ফাইল আপলোড করুন — আমরা স্বয়ংক্রিয়ভাবে সঠিক সাইজে রূপান্তর করব",
+    hi: "फ़ाइल अपলोड करें — हम स्वचालित रूप से सही आकार में बदल देंगे",
+    en: "Upload your file — we'll compress it to the required size automatically",
+  },
 }
 
 const documents = [
-  { id: "pdf1", label: { bn: "মাধ্যমিক অ্যাডমিট কার্ড", hi: "एडमिट कार्ड", en: "Madhyamik Admit Card" }, type: "pdf" },
-  { id: "pdf2", label: { bn: "মার্কশিট", hi: "मार्कशीट", en: "Marksheet" }, type: "pdf" },
-  { id: "pdf3", label: { bn: "আধার কার্ড", hi: "आधार कार्ड", en: "Aadhaar Card" }, type: "pdf" },
-  { id: "pdf4", label: { bn: "ভোটার কার্ড", hi: "वोटर कार्ड", en: "Voter Card" }, type: "pdf" },
-  { id: "pdf5", label: { bn: "ব্যাংক পাসবুক", hi: "बैंक पासबुक", en: "Bank Passbook" }, type: "pdf" },
-  { id: "pdf6", label: { bn: "জাতি শংসাপত্র", hi: "जाति प्रमाण पत्र", en: "Caste Certificate" }, type: "pdf" },
-  { id: "photo", label: { bn: "পাসপোর্ট ছবি", hi: "पासपोर्ट फोटो", en: "Passport Photo" }, type: "photo" },
-  { id: "sig", label: { bn: "স্বাক্ষর", hi: "हस्ताक्षर", en: "Signature" }, type: "signature" },
+  {
+    id: "pdf1",
+    label: {
+      bn: "মাধ্যমিক অ্যাডমিট কার্ড (স্বপ্রত্যয়িত)",
+      hi: "माध्यमिक एडमिट कार्ड (स्व-सत्यापित)",
+      en: "Madhyamik Admit Card (Self Attested)",
+    },
+    type: "pdf",
+    format: "PDF only",
+    maxSize: "max 300 KB",
+  },
+  {
+    id: "pdf2",
+    label: {
+      bn: "মার্কশিট / শিক্ষাগত সার্টিফিকেট (স্বপ্রত্যয়িত)",
+      hi: "मार्कशीट / शैक्षणिक प्रमाण पत्र (स्व-सत्यापित)",
+      en: "Marksheet / Educational Certificate (Self Attested)",
+    },
+    type: "pdf",
+    format: "PDF only",
+    maxSize: "max 300 KB",
+  },
+  {
+    id: "pdf3",
+    label: {
+      bn: "আধার কার্ডের কপি (স্বপ্রত্যয়িত)",
+      hi: "आधार कार्ड की कॉपी (स्व-सत्यापित)",
+      en: "Aadhaar Card Copy (Self Attested)",
+    },
+    type: "pdf",
+    format: "PDF only",
+    maxSize: "max 300 KB",
+  },
+  {
+    id: "pdf4",
+    label: {
+      bn: "ভোটার কার্ডের কপি (স্বপ্রত্যয়িত)",
+      hi: "वोटर कार्ड की कॉपी (स्व-सत्यापित)",
+      en: "Voter Card Copy (Self Attested)",
+    },
+    type: "pdf",
+    format: "PDF only",
+    maxSize: "max 300 KB",
+  },
+  {
+    id: "pdf5",
+    label: {
+      bn: "পাসবুকের প্রথম পাতা (স্বপ্রত্যয়িত)",
+      hi: "पासबुक का पहला पेज (स्व-सत्यापित)",
+      en: "Bank Passbook First Page (Self Attested)",
+    },
+    type: "pdf",
+    format: "PDF only",
+    maxSize: "max 300 KB",
+  },
+  {
+    id: "pdf6",
+    label: {
+      bn: "SC/ST/OBC সার্টিফিকেট (স্বপ্রত্যয়িত)",
+      hi: "SC/ST/OBC प्रमाण पत्र (स्व-सत्यापित)",
+      en: "SC/ST/OBC Certificate (Self Attested)",
+    },
+    type: "pdf",
+    format: "PDF only",
+    maxSize: "max 300 KB",
+  },
+  {
+    id: "photo",
+    label: {
+      bn: "পাসপোর্ট সাইজের ছবি",
+      hi: "पासपोर्ट साइज़ फोटो",
+      en: "Passport Size Photo",
+    },
+    type: "photo",
+    format: "JPG or PNG",
+    maxSize: "max 50 KB",
+  },
+  {
+    id: "sig",
+    label: {
+      bn: "আবেদনকারীর স্বাক্ষর",
+      hi: "आवेदक के हस्ताक्षर",
+      en: "Applicant Signature",
+    },
+    type: "signature",
+    format: "JPG or PNG",
+    maxSize: "max 50 KB",
+  },
 ]
 
 export default function App() {
@@ -41,6 +155,7 @@ export default function App() {
   const t = (key) => text[key][lang]
   const isFree = serverRemaining > 0
   const hasPaid = docsAllowed > 0
+  const isPdf = selectedDoc?.type === "pdf"
 
   useEffect(() => {
     const script = document.createElement("script")
@@ -117,89 +232,140 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f4ff", fontFamily: "sans-serif" }}>
-      <div style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)", padding: "24px", textAlign: "center" }}>
-        <h1 style={{ color: "white", fontSize: "1.5rem", marginBottom: "8px" }}>{t("title")}</h1>
-        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.9rem" }}>{t("subtitle")}</p>
-        <div style={{ marginTop: "12px", display: "flex", justifyContent: "center", gap: "8px" }}>
+    <div className="app-root">
+
+      {/* Header */}
+      <div className="app-header">
+        <h1 className="app-title">{t("title")}</h1>
+        <p className="app-subtitle">{t("subtitle")}</p>
+        <div className="lang-row">
           {["en", "bn", "hi"].map(l => (
-            <button key={l} onClick={() => setLang(l)} style={{
-              padding: "4px 14px", borderRadius: "20px", border: "none", cursor: "pointer",
-              background: lang === l ? "white" : "rgba(255,255,255,0.2)",
-              color: lang === l ? "#2563eb" : "white", fontWeight: "bold"
-            }}>
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              className={`lang-btn${lang === l ? " lang-btn-active" : ""}`}
+            >
               {l === "en" ? "English" : l === "bn" ? "বাংলা" : "हिंदी"}
             </button>
           ))}
         </div>
-        <div style={{ marginTop: "10px", color: "rgba(255,255,255,0.9)", fontSize: "0.85rem" }}>
-          {isFree ? `✨ ${serverRemaining} free conversions left` : hasPaid ? `📄 ${docsAllowed} docs remaining` : `⚠️ ${t("freeUsed")}`}
+        <div className="usage-bar">
+          {isFree
+            ? `✨ ${serverRemaining} free conversion${serverRemaining !== 1 ? "s" : ""} left`
+            : hasPaid
+            ? `📄 ${docsAllowed} doc${docsAllowed !== 1 ? "s" : ""} remaining`
+            : `⚠️ ${t("freeUsed")}`}
         </div>
       </div>
 
-      <div style={{ maxWidth: "600px", margin: "0 auto", padding: "24px" }}>
+      {/* Main content */}
+      <div className="app-content">
+
+        {/* Paywall modal */}
         {showPaywall && (
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
-            <div style={{ background: "white", borderRadius: "16px", padding: "32px", maxWidth: "400px", width: "90%", textAlign: "center" }}>
+          <div className="paywall-backdrop">
+            <div className="paywall-modal">
               <h2 style={{ marginBottom: "8px" }}>🔒 {t("freeUsed")}</h2>
               <p style={{ color: "#6b7280", marginBottom: "24px", fontSize: "0.9rem" }}>{t("choosePlan")}</p>
-              <div onClick={() => handlePayment("student")} style={{ border: "2px solid #2563eb", borderRadius: "12px", padding: "16px", marginBottom: "12px", cursor: "pointer", background: "#f0f4ff" }}>
-                <div style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#2563eb" }}>₹15</div>
-                <div style={{ fontWeight: "bold", margin: "4px 0" }}>🧑‍🎓 Student Pack</div>
-                <div style={{ fontSize: "0.82rem", color: "#6b7280" }}>Next 6 documents — perfect for Yuva Sathi!</div>
+              <div onClick={() => handlePayment("student")} className="plan-card plan-card-blue">
+                <div className="plan-price blue">₹15</div>
+                <div className="plan-name">🧑‍🎓 Student Pack</div>
+                <div className="plan-desc">Next 6 documents — perfect for Yuva Sathi!</div>
               </div>
-              <div onClick={() => handlePayment("cafe")} style={{ border: "2px solid #7c3aed", borderRadius: "12px", padding: "16px", marginBottom: "16px", cursor: "pointer", background: "#f5f3ff" }}>
-                <div style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#7c3aed" }}>₹49</div>
-                <div style={{ fontWeight: "bold", margin: "4px 0" }}>🖥️ Cyber Café Pack</div>
-                <div style={{ fontSize: "0.82rem", color: "#6b7280" }}>50 documents · 24 hours</div>
+              <div onClick={() => handlePayment("cafe")} className="plan-card plan-card-purple">
+                <div className="plan-price purple">₹49</div>
+                <div className="plan-name">🖥️ Cyber Café Pack</div>
+                <div className="plan-desc">50 documents · 24 hours</div>
               </div>
-              <div style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: "12px" }}>🔒 Secured by Cashfree · We never store your documents</div>
-              <button onClick={() => setShowPaywall(false)} style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer" }}>Cancel</button>
+              <div className="secured-note">🔒 Secured by Cashfree · We never store your documents</div>
+              <button onClick={() => setShowPaywall(false)} className="cancel-btn">Cancel</button>
             </div>
           </div>
         )}
 
-        <p style={{ fontWeight: "bold", marginBottom: "12px" }}>{t("selectDoc")}</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "24px" }}>
-          {documents.map(doc => (
-            <div key={doc.id} onClick={() => setSelectedDoc(doc)} style={{
-              padding: "12px", borderRadius: "10px", cursor: "pointer", fontSize: "0.85rem",
-              background: selectedDoc?.id === doc.id ? "#2563eb" : "white",
-              color: selectedDoc?.id === doc.id ? "white" : "#1a1a2e",
-              border: `2px solid ${selectedDoc?.id === doc.id ? "#2563eb" : "#e5e7eb"}`,
-              textAlign: "center"
-            }}>
-              {doc.label[lang]}
-            </div>
-          ))}
+        {/* Portal tips */}
+        <div className="tips-box">
+          <div className="tips-title">{t("tipsTitle")}</div>
+          <div className="tip-item">{t("tip1")}</div>
+          <div className="tip-item">{t("tip2")}</div>
+          <div className="tip-item">{t("tip3")}</div>
         </div>
 
+        {/* Document selector */}
+        <p className="section-label">{t("selectDoc")}</p>
+        <div className="doc-grid">
+          {documents.map(doc => {
+            const isSelected = selectedDoc?.id === doc.id
+            return (
+              <div
+                key={doc.id}
+                onClick={() => {
+                  setSelectedDoc(doc)
+                  setFile(null)
+                  setStatus("idle")
+                  setDownloadUrl(null)
+                }}
+                className={`doc-card${isSelected ? " doc-card-selected" : ""}`}
+              >
+                <div className="doc-label">{doc.label[lang]}</div>
+                <div className={`doc-badge${isSelected ? " doc-badge-selected" : ""}`}>
+                  {doc.type === "pdf" ? "📄" : "🖼️"} {doc.format} · {doc.maxSize}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* File upload */}
         {selectedDoc && (
-          <div style={{ background: "white", borderRadius: "12px", padding: "20px", marginBottom: "16px", textAlign: "center" }}>
-            <input type="file" onChange={e => setFile(e.target.files[0])} style={{ marginBottom: "12px" }} />
-            {file && <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "12px" }}>📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)</p>}
-            <button onClick={handleConvert} disabled={!file || status === "converting"} style={{
-              background: "#2563eb", color: "white", border: "none", borderRadius: "8px",
-              padding: "12px 32px", fontSize: "1rem", cursor: "pointer", width: "100%"
-            }}>
+          <div className="upload-box">
+            <p className="upload-note">{t("uploadNote")}</p>
+            <input
+              type="file"
+              accept={isPdf ? "application/pdf" : "image/jpeg,image/png"}
+              onChange={e => {
+                setFile(e.target.files[0])
+                setStatus("idle")
+                setDownloadUrl(null)
+              }}
+              className="file-input"
+            />
+            {file && (
+              <p className="file-info">
+                📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                {file.size / 1024 > (isPdf ? 300 : 50) && (
+                  <span className="size-warning"> · will be compressed to {isPdf ? "300 KB" : "50 KB"}</span>
+                )}
+              </p>
+            )}
+            <button
+              onClick={handleConvert}
+              disabled={!file || status === "converting"}
+              className="convert-btn"
+            >
               {status === "converting" ? t("converting") : t("convert")}
             </button>
           </div>
         )}
 
+        {/* Success */}
         {status === "done" && downloadUrl && (
-          <div style={{ background: "#d1fae5", borderRadius: "12px", padding: "20px", textAlign: "center" }}>
-            <p style={{ color: "#065f46", fontWeight: "bold", marginBottom: "12px" }}>{t("success")}</p>
-            <a href={downloadUrl} download="converted_file" style={{
-              background: "#10b981", color: "white", borderRadius: "8px",
-              padding: "12px 32px", textDecoration: "none", fontWeight: "bold"
-            }}>⬇️ {t("download")}</a>
+          <div className="success-box">
+            <p className="success-text">{t("success")}</p>
+            <p className="success-sub">
+              {isPdf ? "✅ PDF compressed to ≤ 300 KB" : "✅ Image compressed to ≤ 50 KB"} — ready to upload to the portal
+            </p>
+            <a href={downloadUrl} download="converted_file" className="download-btn">
+              ⬇️ {t("download")}
+            </a>
           </div>
         )}
 
-        {status === "error" && <p style={{ color: "red", textAlign: "center" }}>Something went wrong. Please try again.</p>}
+        {status === "error" && (
+          <p style={{ color: "red", textAlign: "center" }}>Something went wrong. Please try again.</p>
+        )}
 
-        <div style={{ textAlign: "center", marginTop: "20px", fontSize: "0.75rem", color: "#9ca3af" }}>
+        <div className="footer-note">
           🔒 We never store your documents · Deleted immediately after conversion
         </div>
       </div>

@@ -1,42 +1,274 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+/* ===== Layout ===== */
+.app-root {
+  min-height: 100vh;
+  background: #f0f4ff;
+  font-family: system-ui, sans-serif;
+}
+
+/* ===== Header ===== */
+.app-header {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  padding: 24px 20px;
   text-align: center;
 }
+.app-title {
+  color: white;
+  font-size: 1.4rem;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+.app-subtitle {
+  color: rgba(255,255,255,0.85);
+  font-size: 0.88rem;
+  margin: 0 0 12px;
+}
+.lang-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.lang-btn {
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  font-weight: bold;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+.lang-btn-active {
+  background: white;
+  color: #2563eb;
+}
+.usage-bar {
+  color: rgba(255,255,255,0.9);
+  font-size: 0.85rem;
+}
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* ===== Content ===== */
+.app-content {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px 16px 32px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* ===== Tips box ===== */
+.tips-box {
+  background: #fef9c3;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.tips-title {
+  font-weight: bold;
+  font-size: 0.88rem;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+.tip-item {
+  font-size: 0.82rem;
+  color: #78350f;
+  margin-bottom: 4px;
+  line-height: 1.4;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* ===== Section label ===== */
+.section-label {
+  font-weight: bold;
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #1a1a2e;
 }
 
-.card {
-  padding: 2em;
+/* ===== Document grid ===== */
+.doc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.doc-card {
+  padding: 12px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  background: white;
+  border: 2px solid #e5e7eb;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.doc-card-selected {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+.doc-label {
+  font-size: 0.82rem;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+.doc-card-selected .doc-label {
+  color: white;
+}
+.doc-badge {
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 2px 6px;
+  display: inline-block;
+}
+.doc-badge-selected {
+  background: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.9);
 }
 
-.read-the-docs {
-  color: #888;
+/* ===== Upload box ===== */
+.upload-box {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.upload-note {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+.file-input {
+  margin-bottom: 12px;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.file-info {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+.size-warning {
+  color: #d97706;
+  font-weight: 500;
+}
+.convert-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 32px;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.15s;
+}
+.convert-btn:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+.convert-btn:not(:disabled):hover {
+  background: #1d4ed8;
+}
+
+/* ===== Success ===== */
+.success-box {
+  background: #d1fae5;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.success-text {
+  color: #065f46;
+  font-weight: bold;
+  margin: 0 0 6px;
+}
+.success-sub {
+  font-size: 0.82rem;
+  color: #047857;
+  margin: 0 0 14px;
+}
+.download-btn {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  border-radius: 8px;
+  padding: 12px 32px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+.download-btn:hover {
+  background: #059669;
+}
+
+/* ===== Paywall ===== */
+.paywall-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 16px;
+}
+.paywall-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 28px 24px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+.plan-card {
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.plan-card:active { transform: scale(0.98); }
+.plan-card-blue { border: 2px solid #2563eb; background: #eff6ff; }
+.plan-card-purple { border: 2px solid #7c3aed; background: #f5f3ff; }
+.plan-price {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+.plan-price.blue { color: #2563eb; }
+.plan-price.purple { color: #7c3aed; }
+.plan-name { font-weight: bold; margin: 4px 0; font-size: 0.95rem; }
+.plan-desc { font-size: 0.82rem; color: #6b7280; }
+.secured-note { font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px; }
+.cancel-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* ===== Footer ===== */
+.footer-note {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* ===== Mobile responsive ===== */
+@media (max-width: 480px) {
+  .app-title { font-size: 1.15rem; }
+  .app-header { padding: 18px 14px; }
+  .app-content { padding: 14px 12px 28px; }
+  .doc-grid { grid-template-columns: 1fr; gap: 8px; }
+  .doc-card { padding: 12px; }
+  .doc-label { font-size: 0.85rem; }
+  .upload-box { padding: 16px 14px; }
+  .convert-btn { padding: 12px 20px; font-size: 0.95rem; }
+  .paywall-modal { padding: 22px 18px; }
+  .plan-price { font-size: 1.5rem; }
 }
