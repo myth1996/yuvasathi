@@ -5,10 +5,12 @@ import fitz  # PyMuPDF
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# DPI levels to try for PDF page rasterisation (high → low, never below 100)
-PDF_DPI_LEVELS = [200, 150, 120, 100]
+# DPI levels to try for PDF page rasterisation (high → low)
+# Note: because pages are embedded as JPEG (not raw PNG), 72 DPI still looks
+# much better than the old raw-rasterisation approach at the same DPI.
+PDF_DPI_LEVELS = [200, 150, 120, 100, 85, 72]
 # JPEG quality levels to try when embedding page images inside a PDF
-PDF_JPEG_QUALITY = [85, 75]
+PDF_JPEG_QUALITY = [85, 75, 65]
 # JPEG quality levels for photo/signature images (never below 65 — keeps text legible)
 IMAGE_JPEG_QUALITY = [85, 75, 65]
 # Resize multipliers for images — only gentle reduction, 0.75 is the floor
@@ -46,16 +48,28 @@ def compress_pdf(file_bytes: bytes, max_mb: float = 0.3) -> bytes:
         return lossless
 
     # --- Step 2: JPEG-inside-PDF rasterisation ---
+    num_pages = len(doc)
+    per_page_budget = max_bytes / num_pages
+    logging.info(f"{num_pages} page(s), per-page budget: {per_page_budget/1024:.1f} KB")
+
     best = lossless  # keep track of smallest so far as fallback
     for dpi in PDF_DPI_LEVELS:
         for jpeg_quality in PDF_JPEG_QUALITY:
             logging.info(f"Trying {dpi} DPI, JPEG quality {jpeg_quality}")
+
+            # Quick per-page estimate: render one page as JPEG and check size.
+            # If a single page already exceeds the per-page budget, skip this
+            # combination early rather than building the whole PDF.
+            sample_pix = doc[0].get_pixmap(dpi=dpi, alpha=False)
+            sample_jpeg = sample_pix.tobytes("jpeg", jpg_quality=jpeg_quality)
+            if num_pages > 1 and len(sample_jpeg) > per_page_budget * 1.5:
+                logging.info(f"  Skipping — sample page {len(sample_jpeg)/1024:.1f} KB > budget")
+                continue
+
             new_doc = fitz.open()
             for page in doc:
                 pix = page.get_pixmap(dpi=dpi, alpha=False)
-                # Encode the pixmap as JPEG bytes (lossy but controlled quality)
                 jpeg_bytes = pix.tobytes("jpeg", jpg_quality=jpeg_quality)
-                # Insert the JPEG image into a new PDF page of the same dimensions
                 img_pdf = fitz.open()
                 img_page = img_pdf.new_page(width=pix.width, height=pix.height)
                 img_page.insert_image(img_page.rect, stream=jpeg_bytes)
