@@ -126,14 +126,43 @@ def health_check():
     return {"status": "ok", "redis_connected": redis_client is not None}
 
 @app.get("/check-limit")
-def check_limit_endpoint(request: Request):
-    """Checks remaining free conversions for the user's IP."""
+def check_limit_endpoint(request: Request, myref: str | None = None):
+    """Checks remaining free conversions, including referral bonuses."""
     if not redis_client:
-        return {"used": 0, "remaining": settings.free_limit}
-        
+        return {"used": 0, "remaining": settings.free_limit, "bonus": 0}
+
     ip = get_ip(request)
     used = int(redis_client.get(ip) or 0)
-    return {"used": used, "remaining": max(0, settings.free_limit - used)}
+    bonus = 0
+    if myref:
+        raw = redis_client.get(f"ref_credit:{myref}")
+        bonus = min(int(raw or 0), 5)  # cap at 5 bonus conversions
+    effective_limit = settings.free_limit + bonus
+    return {"used": used, "remaining": max(0, effective_limit - used), "bonus": bonus}
+
+
+@app.post("/referral/credit")
+def referral_credit(ref_code: str, request: Request):
+    """
+    Called when a referred visitor completes their first conversion.
+    Credits the referrer with +1 bonus conversion (capped at 5 total).
+    Prevents the same visitor IP from crediting more than once.
+    """
+    if not redis_client or not ref_code:
+        return {"credited": False}
+
+    visitor_ip = get_ip(request)
+    already_key = f"ref_credited:{visitor_ip}"
+    if redis_client.exists(already_key):
+        return {"credited": False, "reason": "already credited"}
+
+    current = int(redis_client.get(f"ref_credit:{ref_code}") or 0)
+    if current >= 5:
+        return {"credited": False, "reason": "cap reached"}
+
+    redis_client.incr(f"ref_credit:{ref_code}")
+    redis_client.set(already_key, "1", ex=60 * 60 * 24 * 30)  # lock for 30 days
+    return {"credited": True}
 
 async def conversion_gate(user: UserContext = Depends(get_user_context)):
     """A dependency that blocks access if usage limits are exceeded."""

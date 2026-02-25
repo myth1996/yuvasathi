@@ -3,6 +3,14 @@ import "./App.css"
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
+const SITE_URL = "https://yuvasathi.vercel.app"
+
+const whatsappMsg = {
+  en: `Convert your Yuva Sathi documents for FREE 📄\nAadhaar, Marksheet, Voter Card, Passport Photo & more — compressed to exact portal size in seconds!\n`,
+  bn: `যুব সাথী নথি বিনামূল্যে রূপান্তর করুন 📄\nআধার, মার্কশিট, ভোটার কার্ড, পাসপোর্ট ছবি — পোর্টালের সঠিক সাইজে মাত্র কয়েক সেকেন্ডে!\n`,
+  hi: `युवा साथी दस्तावेज़ मुफ्त में कन्वर्ट करें 📄\nआधार, मार्कशीट, वोटर कार्ड, पासपोर्ट फोटो — पोर्टल के सही साइज़ में सेकंडों में!\n`,
+}
+
 const text = {
   title: {
     bn: "বাংলার যুব সাথী — নথি ফরম্যাটার",
@@ -157,6 +165,18 @@ export default function App() {
   const hasPaid = docsAllowed > 0
   const isPdf = selectedDoc?.type === "pdf"
 
+  // --- Referral: init own code + capture incoming ref ---
+  useEffect(() => {
+    if (!localStorage.getItem("myRefCode")) {
+      localStorage.setItem("myRefCode", "ref_" + Math.random().toString(36).slice(2, 10))
+    }
+    const params = new URLSearchParams(window.location.search)
+    const incomingRef = params.get("ref")
+    if (incomingRef && !localStorage.getItem("usedRef")) {
+      localStorage.setItem("pendingRef", incomingRef)
+    }
+  }, [])
+
   useEffect(() => {
     const script = document.createElement("script")
     script.src = "https://sdk.cashfree.com/js/v3/cashfree.js"
@@ -170,7 +190,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    fetch(`${API}/check-limit`)
+    const myref = localStorage.getItem("myRefCode") || ""
+    fetch(`${API}/check-limit?myref=${myref}`)
       .then(r => r.json())
       .then(d => setServerRemaining(d.remaining))
       .catch(() => {})
@@ -198,6 +219,16 @@ export default function App() {
       setStatus("done")
       if (hasPaid) setDocsAllowed(prev => prev - 1)
       else setFreeUsed(prev => prev + 1)
+      // Credit referrer on first conversion by a referred visitor
+      const pendingRef = localStorage.getItem("pendingRef")
+      if (pendingRef && !localStorage.getItem("usedRef")) {
+        fetch(`${API}/referral/credit?ref_code=${pendingRef}`, { method: "POST" })
+          .then(() => {
+            localStorage.setItem("usedRef", pendingRef)
+            localStorage.removeItem("pendingRef")
+          })
+          .catch(() => {})
+      }
     } catch (e) {
       setStatus("error")
     }
@@ -364,6 +395,21 @@ export default function App() {
         {status === "error" && (
           <p style={{ color: "red", textAlign: "center" }}>Something went wrong. Please try again.</p>
         )}
+
+        {/* WhatsApp share */}
+        <div className="share-box">
+          <div className="share-label">🎁 Share with a friend — earn +1 free conversion</div>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(
+              whatsappMsg[lang] + SITE_URL + "?ref=" + (localStorage.getItem("myRefCode") || "")
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="whatsapp-btn"
+          >
+            📲 Share on WhatsApp
+          </a>
+        </div>
 
         <div className="footer-note">
           🔒 We never store your documents · Deleted immediately after conversion
