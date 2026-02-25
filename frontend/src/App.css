@@ -125,6 +125,19 @@
   background: rgba(255,255,255,0.2);
   color: rgba(255,255,255,0.9);
 }
+.doc-card-done {
+  border-color: #6ee7b7;
+}
+.doc-done-tick {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #059669;
+  background: #d1fae5;
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
+}
 
 /* ===== Upload box ===== */
 .upload-box {
@@ -233,6 +246,40 @@
 }
 .download-btn:hover {
   background: #059669;
+}
+.share-native-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: #25d366;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.share-native-btn:hover {
+  background: #1ebe5d;
+}
+.convert-another-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: none;
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  color: #065f46;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.convert-another-btn:hover {
+  background: #d1fae5;
 }
 
 /* ===== Paywall ===== */

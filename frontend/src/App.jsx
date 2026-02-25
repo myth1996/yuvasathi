@@ -29,6 +29,16 @@ const text = {
   download: { bn: "ডাউনলোড করুন", hi: "डाउनलोड करें", en: "Download" },
   freeUsed: { bn: "বিনামূল্যে রূপান্তর শেষ!", hi: "मुफ्त कन्वर्शन खत्म!", en: "Free conversions used up!" },
   choosePlan: { bn: "একটি প্ল্যান বেছে নিন", hi: "एक प्लान चुनें", en: "Choose a plan to continue" },
+  alreadySmall: {
+    bn: "✅ ফাইল ইতিমধ্যেই সীমার মধ্যে আছে — কোনো কম্প্রেশন দরকার নেই",
+    hi: "✅ फ़ाइल पहले से ही सीमा के भीतर है — कोई कम्प्रेशन ज़रूरी नहीं",
+    en: "✅ File is already within the size limit — no compression needed",
+  },
+  convertAnother: {
+    bn: "আরেকটি নথি রূপান্তর করুন",
+    hi: "एक और दस्तावेज़ कन्वर्ट करें",
+    en: "Convert Another Document",
+  },
   tipsTitle: {
     bn: "পোর্টালে জমা দেওয়ার আগে মনে রাখুন",
     hi: "पोर्टल पर जमा करने से पहले याद रखें",
@@ -171,6 +181,12 @@ export default function App() {
   const [serverRemaining, setServerRemaining] = useState(2)
   const [cashfree, setCashfree] = useState(null)
   const [downloadFileName, setDownloadFileName] = useState("")
+  const [outputSize, setOutputSize] = useState(0)
+  const [wasAlreadySmall, setWasAlreadySmall] = useState(false)
+  const [doneDocs, setDoneDocs] = useState(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem("doneDocs") || "[]")) }
+    catch { return new Set() }
+  })
 
   const uploadRef = useRef(null)
   const successRef = useRef(null)
@@ -227,9 +243,53 @@ export default function App() {
       .catch(() => {})
   }, [freeUsed])
 
+  const fmtSize = (bytes) => bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    : `${(bytes / 1024).toFixed(1)} KB`
+
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share
+
+  function markDone(docId) {
+    setDoneDocs(prev => {
+      const next = new Set(prev)
+      next.add(docId)
+      sessionStorage.setItem("doneDocs", JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  async function handleNativeShare() {
+    if (!downloadUrl || !navigator.share) return
+    try {
+      const response = await fetch(downloadUrl)
+      const blob = await response.blob()
+      const fname = downloadFileName || "converted_file"
+      const shareFile = new File([blob], fname, { type: blob.type })
+      if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+        await navigator.share({ files: [shareFile], title: "YuvaSathi Document" })
+      } else {
+        await navigator.share({ title: "YuvaSathi Document", url: SITE_URL })
+      }
+    } catch (_) { /* user cancelled */ }
+  }
+
   async function handleConvert() {
     if (!file || !selectedDoc) return
     if (!isFree && !hasPaid) { setShowPaywall(true); return }
+
+    const limitBytes = isPdf ? 300 * 1024 : 50 * 1024
+
+    // --- Feature 2: skip compression if already within limit ---
+    if (file.size <= limitBytes) {
+      setWasAlreadySmall(true)
+      setOutputSize(file.size)
+      setDownloadUrl(URL.createObjectURL(file))
+      setStatus("done")
+      markDone(selectedDoc.id)
+      return
+    }
+
+    setWasAlreadySmall(false)
     setStatus("converting")
     setDownloadUrl(null)
     const endpoint = selectedDoc.type === "pdf"
@@ -245,8 +305,10 @@ export default function App() {
       const res = await fetch(endpoint, { method: "POST", body: formData, headers })
       if (res.status === 402) { setShowPaywall(true); setStatus("idle"); return }
       const blob = await res.blob()
+      setOutputSize(blob.size)  // --- Feature 3: track output size ---
       setDownloadUrl(URL.createObjectURL(blob))
       setStatus("done")
+      markDone(selectedDoc.id)
       if (hasPaid) setDocsAllowed(prev => prev - 1)
       else setFreeUsed(prev => prev + 1)
       // Credit referrer on first conversion by a referred visitor
@@ -262,6 +324,17 @@ export default function App() {
     } catch (e) {
       setStatus("error")
     }
+  }
+
+  // --- Feature 1: reset everything and scroll to top ---
+  function handleConvertAnother() {
+    setSelectedDoc(null)
+    setFile(null)
+    setStatus("idle")
+    setDownloadUrl(null)
+    setOutputSize(0)
+    setWasAlreadySmall(false)
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   async function handlePayment(plan) {
@@ -366,12 +439,13 @@ export default function App() {
                   setStatus("idle")
                   setDownloadUrl(null)
                 }}
-                className={`doc-card${isSelected ? " doc-card-selected" : ""}`}
+                className={`doc-card${isSelected ? " doc-card-selected" : ""}${doneDocs.has(doc.id) ? " doc-card-done" : ""}`}
               >
                 <div className="doc-label">{doc.label[lang]}</div>
                 <div className={`doc-badge${isSelected ? " doc-badge-selected" : ""}`}>
                   {doc.type === "pdf" ? "📄" : "🖼️"} {doc.format} · {doc.maxSize}
                 </div>
+                {doneDocs.has(doc.id) && <div className="doc-done-tick">✓ Done</div>}
               </div>
             )
           })}
@@ -414,7 +488,9 @@ export default function App() {
           <div className="success-box" ref={successRef}>
             <p className="success-text">{t("success")}</p>
             <p className="success-sub">
-              {isPdf ? "✅ PDF compressed to ≤ 300 KB" : "✅ Image compressed to ≤ 50 KB"} — ready to upload to the portal
+              {wasAlreadySmall
+                ? t("alreadySmall")
+                : `${fmtSize(file?.size || 0)} → ${fmtSize(outputSize)} — ready to upload to the portal`}
             </p>
             <div className="filename-row">
               <label className="filename-label">Save as:</label>
@@ -428,6 +504,14 @@ export default function App() {
             <a href={downloadUrl} download={downloadFileName || "converted_file"} className="download-btn">
               ⬇️ {t("download")}
             </a>
+            {canNativeShare && (
+              <button onClick={handleNativeShare} className="share-native-btn">
+                📤 Share / Open in WhatsApp
+              </button>
+            )}
+            <button onClick={handleConvertAnother} className="convert-another-btn">
+              🔄 {t("convertAnother")}
+            </button>
           </div>
         )}
 

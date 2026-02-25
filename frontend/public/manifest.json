@@ -1,0 +1,17 @@
+{
+  "name": "YuvaSathi Document Formatter",
+  "short_name": "YuvaSathi",
+  "description": "Compress documents for the বাংলার যুব সাথী portal — Aadhaar, Marksheet, Photo & more",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f4ff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
