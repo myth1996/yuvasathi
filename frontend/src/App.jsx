@@ -33,6 +33,7 @@ export default function App() {
   const [downloadUrl, setDownloadUrl] = useState(null)
   const [freeUsed, setFreeUsed] = useState(0)
   const [docsAllowed, setDocsAllowed] = useState(0)
+  const [accessToken, setAccessToken] = useState(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [serverRemaining, setServerRemaining] = useState(2)
   const [cashfree, setCashfree] = useState(null)
@@ -72,7 +73,7 @@ export default function App() {
       : `${API}/convert/signature`
     try {
       const headers = {}
-      if (hasPaid) headers["X-Access-Token"] = "paid"
+      if (hasPaid && accessToken) headers["Authorization"] = `Bearer ${accessToken}`
       const formData = new FormData()
       formData.append("file", file)
       const res = await fetch(endpoint, { method: "POST", body: formData, headers })
@@ -80,7 +81,8 @@ export default function App() {
       const blob = await res.blob()
       setDownloadUrl(URL.createObjectURL(blob))
       setStatus("done")
-      setFreeUsed(prev => prev + 1)
+      if (hasPaid) setDocsAllowed(prev => prev - 1)
+      else setFreeUsed(prev => prev + 1)
     } catch (e) {
       setStatus("error")
     }
@@ -102,7 +104,11 @@ export default function App() {
             body: JSON.stringify({ order_id: order.order_id, plan })
           })
           const data = await verify.json()
-          if (data.success) { setDocsAllowed(data.docs_allowed); setShowPaywall(false) }
+          if (data.success && data.token) {
+            setAccessToken(data.token)
+            setDocsAllowed(plan === "student" ? 6 : 50)
+            setShowPaywall(false)
+          }
         }
       })
     } catch(e) {
